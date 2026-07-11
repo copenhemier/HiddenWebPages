@@ -13,11 +13,13 @@ from dataclasses import dataclass, field
 from tkinter import filedialog, messagebox, ttk
 from urllib.parse import urljoin, urlparse
 from xml.etree import ElementTree
+
 try:
     import requests
 except ImportError:
     sys.exit("This script requires the 'requests' package: pip install requests")
-DEFAULT_WORDLIST = ['admin', 'administrator', 'login', 'wp-admin', 'wp-login.php', 'backup', 'backups', 'backup.zip', 'backup.sql', 'db_backup.sql', 'config', 'config.php', 'configuration', 'settings', '.env', '.env.local', '.git/HEAD', '.git/config', '.gitignore', '.htaccess', '.DS_Store', 'test', 'testing', 'staging', 'dev', 'development', 'old', 'temp', 'tmp', 'hidden', 'private', 'internal', 'secret', 'api', 'api/docs', 'swagger', 'swagger.json', 'swagger-ui', 'phpmyadmin', 'adminer.php', 'server-status', 'server-info', 'console', 'debug', '.well-known/security.txt', 'sitemap.xml.gz', 'sitemap_index.xml', 'robots.txt.bak', 'web.config', 'crossdomain.xml', 'install', 'setup', 'upload', 'uploads', 'files', 'database', 'db', 'dump.sql', 'logs', 'log.txt', 'error_log', 'users.json', 'users.csv']
+
+DEFAULT_WORDLIST = ['admin', 'administrator', 'admin.php', 'admin.html', 'login', 'login.php', 'logout', 'signin', 'wp-admin', 'wp-login.php', 'wp-config.php', 'wp-content', 'wp-includes', 'xmlrpc.php', 'backup', 'backups', 'backup.zip', 'backup.tar.gz', 'backup.sql', 'db_backup.sql', 'site.zip', 'www.zip', 'config', 'config.php', 'config.json', 'config.yml', 'configuration', 'settings', 'settings.php', '.env', '.env.local', '.env.production', '.env.bak', '.git/HEAD', '.git/config', '.gitignore', '.svn/entries', '.htaccess', '.htpasswd', '.DS_Store', '.idea', '.vscode', 'test', 'test.php', 'testing', 'staging', 'dev', 'development', 'old', 'old_site', 'temp', 'tmp', 'hidden', 'private', 'internal', 'secret', 'beta', 'demo', 'sandbox', 'api', 'api/docs', 'api/v1', 'api/v2', 'graphql', 'swagger', 'swagger.json', 'swagger-ui', 'openapi.json', 'phpmyadmin', 'pma', 'adminer.php', 'server-status', 'server-info', 'console', 'debug', 'debug.php', 'phpinfo.php', 'info.php', '.well-known/security.txt', 'sitemap.xml.gz', 'sitemap_index.xml', 'sitemap1.xml', 'robots.txt.bak', 'web.config', 'crossdomain.xml', 'humans.txt', 'install', 'install.php', 'setup', 'setup.php', 'upload', 'uploads', 'files', 'file', 'assets', 'static', 'media', 'database', 'db', 'dump.sql', 'data.sql', 'db.sqlite3', 'logs', 'log', 'log.txt', 'error_log', 'access_log', 'debug.log', 'users.json', 'users.csv', 'users.sql', 'accounts.csv', 'credentials.txt', 'passwords.txt', 'secrets.json', 'id_rsa', '.ssh', 'docker-compose.yml', 'Dockerfile', 'package.json', 'composer.json', 'vendor', 'node_modules', 'cgi-bin', 'shell.php', 'cpanel', 'webmail', 'portal', 'dashboard', 'manage', 'management', 'moderator', 'super-admin', 'owner', 'status', 'health', 'metrics', 'actuator', 'version', 'changelog.txt', 'readme.txt', 'README.md', 'license.txt', 'TODO.txt', 'notes.txt']
 DEFAULT_HEADERS = {'User-Agent': 'hidden-page-auditor/1.0 (site-owner self-audit tool)'}
 
 @dataclass
@@ -298,6 +300,14 @@ class HiddenPagesApp:
         self.output_var = tk.StringVar(value='hidden_pages_report.csv')
         ttk.Entry(out_frame, textvariable=self.output_var).pack(side='left', fill='x', expand=True, padx=6)
         ttk.Button(out_frame, text='Browse...', command=self._browse_output).pack(side='left')
+
+        wl_frame = ttk.Frame(self.root)
+        wl_frame.pack(fill='x', **pad)
+        ttk.Label(wl_frame, text='Wordlist (optional):').pack(side='left')
+        self.wordlist_var = tk.StringVar(value='')
+        ttk.Entry(wl_frame, textvariable=self.wordlist_var).pack(side='left', fill='x', expand=True, padx=6)
+        ttk.Button(wl_frame, text='Browse...', command=self._browse_wordlist).pack(side='left')
+        ttk.Button(wl_frame, text='Clear', command=lambda: self.wordlist_var.set('')).pack(side='left', padx=(4, 0))
         self.progress = ttk.Progressbar(self.root, mode='indeterminate')
         self.progress.pack(fill='x', padx=8, pady=(0, 6))
         notebook = ttk.Notebook(self.root)
@@ -332,6 +342,11 @@ class HiddenPagesApp:
         if path:
             self.output_var.set(path)
 
+    def _browse_wordlist(self):
+        path = filedialog.askopenfilename(filetypes=[('Text files', '*.txt'), ('All files', '*.*')])
+        if path:
+            self.wordlist_var.set(path)
+
     def _open_report_folder(self):
         if self.report_path:
             folder = os.path.dirname(os.path.abspath(self.report_path))
@@ -356,7 +371,7 @@ class HiddenPagesApp:
             self.tree.delete(row)
         self.summary_var.set('Running...')
         self.progress.start(12)
-        args = {'target': target, 'output': self.output_var.get().strip() or 'hidden_pages_report.csv', 'delay': self.delay_var.get(), 'no_dictionary': self.no_dictionary.get(), 'no_wayback': self.no_wayback.get(), 'no_crawl': self.no_crawl.get(), 'ignore_robots': self.ignore_robots.get()}
+        args = {'target': target, 'output': self.output_var.get().strip() or 'hidden_pages_report.csv', 'delay': self.delay_var.get(), 'wordlist': self.wordlist_var.get().strip() or None, 'no_dictionary': self.no_dictionary.get(), 'no_wayback': self.no_wayback.get(), 'no_crawl': self.no_crawl.get(), 'ignore_robots': self.ignore_robots.get()}
         self.worker_thread = threading.Thread(target=self._worker, args=(args,), daemon=True)
         self.worker_thread.start()
 
@@ -364,7 +379,12 @@ class HiddenPagesApp:
         old_stdout = sys.stdout
         sys.stdout = QueueWriter(self.log_queue)
         try:
-            (discovery, report_path) = run_audit(args['target'], output=args['output'], delay=args['delay'], no_dictionary=args['no_dictionary'], no_wayback=args['no_wayback'], no_crawl=args['no_crawl'], ignore_robots=args['ignore_robots'])
+            wordlist = None
+            if args.get('wordlist'):
+                with open(args['wordlist']) as f:
+                    wordlist = [line.strip() for line in f if line.strip()]
+                print(f"Loaded {len(wordlist)} entries from custom wordlist: {args['wordlist']}")
+            (discovery, report_path) = run_audit(args['target'], output=args['output'], delay=args['delay'], wordlist=wordlist, no_dictionary=args['no_dictionary'], no_wayback=args['no_wayback'], no_crawl=args['no_crawl'], ignore_robots=args['ignore_robots'])
             self.log_queue.put(('done', {'discovery': discovery, 'report_path': report_path}))
         except Exception as e:
             self.log_queue.put(('error', str(e)))
